@@ -18,6 +18,8 @@ contract Opto is ERC1155 {
         uint256 units;
         uint256 capPerUnit;
         uint256 unitsLeft;
+        uint256 optionPrice;
+        bool isPaid;
         bool isActive;
         bool isPaused;
     }
@@ -65,6 +67,8 @@ contract Opto is ERC1155 {
             units,
             capPerUnit,
             units,
+            0,
+            false,
             false,
             false
         );
@@ -93,5 +97,26 @@ contract Opto is ERC1155 {
         option.unitsLeft -= units;        
         // Mint option NFT to the buyer
         _mint(msg.sender, id, units, "");
+    }
+
+    function claimOption(uint256 id) public {
+        // Get option from storage
+        Option storage option = options[id];
+        // Check if option is paused
+        require(!option.isPaused, "Option is paused");
+        // Check if option is expired
+        require(block.timestamp >= option.expirationDate, "Option is expired");
+        // Check if option is deactived
+        require(!option.isActive, "Option is not active");
+        // Check if option is 
+        require(option.isPaid, "Option is not paid");
+        // Check if the buyer has enough units
+        require(balanceOf(msg.sender, id) >= units, "Not enough units");
+        // Burn option NFT from the buyer
+        _burn(msg.sender, id, units);
+        // Calculate total collateral
+        uint256 price = option.optionPrice * units;
+        // Transfer collateral from the contract to the buyer
+        require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
     }
 }
