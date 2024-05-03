@@ -4,7 +4,8 @@ interface IOpto {
     // Enum for option type
     enum OptionType { 
         RPC_CALL_QUERY, 
-        SUBGRAPH_QUERY, 
+        SUBGRAPH_QUERY_1, 
+        SUBGRAPH_QUERY_2,
         CUSTOM_QUERY
     }
 
@@ -13,19 +14,25 @@ interface IOpto {
         address writer;
         address premiumReceiver;
         bool isCall;
-        uint256 premium;
-        uint256 strikePrice;
+        uint256 premium; 
+        uint256 strikePrice; 
         uint256 expirationDate;
+
         OptionType optionType;
         uint256 optionQueryId;
+        uint256 assetAddressId;
+
         uint256 units;
-        uint256 capPerUnit;
+        uint256 capPerUnit; 
         uint256 unitsLeft;
-        uint256 optionPrice; //6 decimals for USDC
+        uint256 optionPrice; 
+        
         bool hasToPay;
         bool isActive;
         bool isPaused;
     }
+
+    error UnexpectedRequestID(bytes32 requestId);
 
     event OptionCreated(
         uint256 indexed optionId,
@@ -61,5 +68,11 @@ interface IOpto {
     );
 
     event OptionPaused(uint256 indexed optionId);
+
+    event Response(
+        bytes32 indexed requestId,
+        bytes32 response,
+        bytes32 err
+    );
 
 }
