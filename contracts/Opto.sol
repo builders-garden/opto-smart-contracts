@@ -13,10 +13,17 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
 
     mapping(uint256 => Option) public options;
     mapping(uint256 => string[]) public queries; //change it, use library. add a custom query storage
-    
+
     address public usdcAddress;
     uint256 public lastOptionId;
     bool public isInitialized;
+    bytes32 public s_lastRequestId;
+    bytes32 public donID;
+    uint64 public subscriptionId;
+    uint32 public gasLimit;
+
+
+
 
     constructor(address _owner, address _router) ERC1155() FunctionsClient(_router) ConfirmedOwner(_owner) { // TODO: add 1155 constructor data URI link
     }
@@ -35,7 +42,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         address premiumReceiver,
         bool isCall,
         uint256 premium,
-        uint256 strikePrice,
+        uint256 strikePrice, //in wei
         uint256 expirationDate,
         OptionType optionType,
         uint256 optionQueryId,
@@ -114,21 +121,63 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         _burn(msg.sender, id, units);
         // Calculate total collateral
         uint256 price = option.optionPrice * units;
+        // Convert price to 6 decimals
+        price = price / 1e12;
         // Transfer collateral from the contract to the buyer
         require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
     }
 
     function checkUpkeep(bytes calldata ) external view override returns (bool upkeepNeeded, bytes memory performData) {
-        return (true, "");
     }
-    function performUpkeep(bytes calldata /* performData */) external override {
+    function performUpkeep(bytes calldata  performData) external override {
+        (, uint optionId) = abi.decode(performData, (uint, uint));
+        // check optionId
+        require(optionId != 0, "Invalid optionId");
+        // Get option from storage
+        Option storage option = options[optionId];
+        // Check if option is paused
+        require(!option.isPaused, "Option is paused");
+        // Check if option is expired
+        require(block.timestamp >= option.expirationDate, "Option is expired");
+        // Check if option is deactived
+        require(option.isActive, "Option is not active");
+        // Check if option is not already claimed
+        require(!option.hasToPay, "Option already settled");
+        // Get query TODO: change it
+        string memory query = queries[option.optionQueryId][0];
+        // Send request to Chainlink
+        _sendRequest(optionId);
     }
+
+    function _sendRequest(uint256 optionId) internal {
+    }
+
     function fulfillRequest(
         bytes32 requestId,
         bytes memory response,
         bytes memory err
     ) internal override {
-        
+        if (s_lastRequestId != requestId) {
+            revert UnexpectedRequestID(requestId);
+        }
+        uint256 price;
+        // get price from response
+        uint256 priceResult = uint256(response);
+        // get price max from option
+        uint256 priceMax = options[optionId].capPerUnit;
+        // check if price is less than price max
+        priceMax >= priceResult ? price = priceResult : price = priceMax;
+        // check if price is less than strike price
+        if (price < options[optionId].strikePrice) {
+            //TODO: set option result
+        }
+        // calculate price to pay to buyers
+        uint256 priceToPayPerUnit = price - options[optionId].strikePrice;
+        // set option result
+        options[optionId].isActive = false;
+        options[optionId].hastToPay = true;
+        options[optionId].optionPrice = priceToPayPerUnit;
+        // emit event
         emit Response(requestId, s_lastResponse, s_lastError);
     }
 }
