@@ -3,6 +3,8 @@ pragma solidity ^0.8.6;
 
 import "./IOpto.sol";
 import "./OptoLibrary.sol";
+import "./OptoUtils.sol";
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -11,7 +13,7 @@ import {AutomationCompatibleInterface} from "lib/foundry-chainlink-toolkit/lib/c
 import {ConfirmedOwner} from "lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
-contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner {
+contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{
     using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
     mapping(bytes32 => uint256) public requestIds;
@@ -67,10 +69,12 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Transfer collateral from the writer to the contract
         require(IERC20(usdcAddress).transferFrom(msg.sender, address(this), collateral), "Transfer failed");
         // Create option
+        bytes1 statuses;
+        setIsCall(statuses, isCall);    
         options[newOptionId] = Option(
             msg.sender,
             premiumReceiver,
-            isCall,
+            statuses,
             premium,
             strikePrice,
             expirationDate,
@@ -80,10 +84,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             units,
             capPerUnit,
             units,
-            0,
-            false,
-            false,
-            false
+            0
+          
         );
         // Update last option id
         lastOptionId = newOptionId;
@@ -93,7 +95,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Get option from storage
         Option storage option = options[id];
         // Check if option is paused
-        require(!option.isPaused, "Option is paused");
+        require(!isPaused(option.statuses), "Option is paused");
         // Check if option is not expired
         require(block.timestamp < option.expirationDate, "Option is expired");
         // Check if there are enough units left
@@ -103,8 +105,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Transfer premium from the buyer to the writer
         require(IERC20(usdcAddress).transferFrom(msg.sender, option.premiumReceiver, totalPrice), "Transfer failed");
         // If this is the first time the option is bought, make the option active
-        if (option.unitsLeft == option.units && !option.isActive) {
-            option.isActive = true;
+        if (option.unitsLeft == option.units && !isActive(option.statuses)) {
+            setIsActive(option.statuses, true);
             // Add option to active options for upkeep automation
             activeOptions.push(id);
         }
@@ -118,13 +120,13 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Get option from storage
         Option storage option = options[id];
         // Check if option is paused
-        require(!option.isPaused, "Option is paused");
+        require(!isPaused(option.statuses), "Option is paused");
         // Check if option is expired
         require(block.timestamp >= option.expirationDate, "Option is expired");
         // Check if option is deactived
-        require(!option.isActive, "Option is not active");
+        require(!isActive(option.statuses), "Option is not active");
         // Check if option is 
-        require(option.hasToPay, "Option does not have to pay");
+        require(hasToPay(option.statuses), "Option does not have to pay");
         // Check if the buyer has enough units
         require(balanceOf(msg.sender, id) >= units, "Not enough units");
         // Burn option NFT from the buyer
@@ -142,22 +144,23 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // check optionId
         require(optionId != 0, "Invalid optionId");
         // Get option from storage
-        Option storage option = options[optionId];
+        Option memory option = options[optionId];
         // Check if option is paused
-        require(!option.isPaused, "Option is paused");
+        require(!isPaused(option.statuses), "Option is paused");
         // Check if option is expired
         require(block.timestamp >= option.expirationDate, "Option is expired");
         // Check if option is deactived
-        require(option.isActive, "Option is not active");
+        require(isActive(option.statuses), "Option is not active");
         // Check if option is not already claimed
-        require(!option.hasToPay, "Option already settled");
+        require(!hasToPay(option.statuses), "Option already settled");
         // Send request to Chainlink
-        bytes32 requestId = _sendRequest(optionId, option.optionType, option.optionQueryId, option.assetAddressId);
+        bytes32 requestId = _invokeSendRequest(optionId, option.optionType, option.optionQueryId, option.assetAddressId);
+
         // Store requestId for optionId
         requestIds[requestId] = optionId;
     }
 
-    function _sendRequest(uint256 optionId, OptionType optionType,  uint256 optionQueryId, uint256 queryAddress) internal returns (bytes32) {
+    function _invokeSendRequest(uint256 optionId, OptionType optionType,  uint256 optionQueryId, uint256 queryAddress) internal returns (bytes32) {
         // Get query id
         uint256 queryId = queryTypes[optionType];
         string memory optionIdString = Strings.toString(optionId);
@@ -198,14 +201,14 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         priceMax >= priceResult ? price = priceResult : price = priceMax;
         // check if price is less than strike price
         if (price < options[optionId].strikePrice) {
-            options[optionId].isActive = false;
-            options[optionId].hasToPay = false;
+                setIsActive(options[optionId].statuses, false);
+                setHasToPay(options[optionId].statuses, false);
         }
         // calculate price to pay to buyers
         uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
         // set option result
-        options[optionId].isActive = false;
-        options[optionId].hasToPay = true;
+        setIsActive(options[optionId].statuses, false);
+        setHasToPay(options[optionId].statuses, true);
         options[optionId].optionPrice = priceToPayPerUnit;
         // emit event
         emit Response(requestId, response, err);
