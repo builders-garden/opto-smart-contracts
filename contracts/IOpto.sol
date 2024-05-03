@@ -13,7 +13,7 @@ interface IOpto {
     struct Option {
         address writer;
         address premiumReceiver;
-        bool isCall;
+        bytes1 statuses;
         uint256 premium; 
         uint256 strikePrice; 
         uint256 expirationDate;
@@ -21,15 +21,11 @@ interface IOpto {
         OptionType optionType;
         uint256 optionQueryId;
         uint256 assetAddressId;
-
+        
         uint256 units;
         uint256 capPerUnit; 
         uint256 unitsLeft;
         uint256 optionPrice; 
-        
-        bool hasToPay;
-        bool isActive;
-        bool isPaused;
     }
 
     error UnexpectedRequestID(bytes32 requestId);
