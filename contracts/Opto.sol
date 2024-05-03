@@ -13,6 +13,7 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
+
 contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{
     using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
@@ -68,13 +69,11 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint256 collateral = capPerUnit * units;
         // Transfer collateral from the writer to the contract
         require(IERC20(usdcAddress).transferFrom(msg.sender, address(this), collateral), "Transfer failed");
-        // Create option
-        bytes1 statuses;
-        setIsCall(statuses, isCall);    
+        // Create option    
         options[newOptionId] = Option(
             msg.sender,
             premiumReceiver,
-            statuses,
+            setIsCall(statuses, isCall),
             premium,
             strikePrice,
             expirationDate,
@@ -106,7 +105,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         require(IERC20(usdcAddress).transferFrom(msg.sender, option.premiumReceiver, totalPrice), "Transfer failed");
         // If this is the first time the option is bought, make the option active
         if (option.unitsLeft == option.units && !isActive(option.statuses)) {
-            setIsActive(option.statuses, true);
+            option.statuses = setIsActive(option.statuses, true);
             // Add option to active options for upkeep automation
             activeOptions.push(id);
         }
@@ -200,15 +199,16 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // check if price is less than price max
         priceMax >= priceResult ? price = priceResult : price = priceMax;
         // check if price is less than strike price
+        bytes1 statuses = options[optionId].statuses;
         if (price < options[optionId].strikePrice) {
-                setIsActive(options[optionId].statuses, false);
-                setHasToPay(options[optionId].statuses, false);
+            options[optionId] = setIsActive(statuses, false);
+            options[optionId] = setHasToPay(statuses, false);
         }
         // calculate price to pay to buyers
         uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
         // set option result
-        setIsActive(options[optionId].statuses, false);
-        setHasToPay(options[optionId].statuses, true);
+        options[optionId] = setIsActive(statuses, false);
+        options[optionId] = setHasToPay(statuses, true);
         options[optionId].optionPrice = priceToPayPerUnit;
         // emit event
         emit Response(requestId, response, err);
