@@ -71,8 +71,8 @@ interface IOpto {
 
     event Response(
         bytes32 indexed requestId,
-        bytes32 response,
-        bytes32 err
+        bytes response,
+        bytes err
     );
 
 }
