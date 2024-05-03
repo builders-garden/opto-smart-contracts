@@ -1,41 +1,41 @@
-
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.6;
 
 contract OptoUtils {
  
-
-    // Function to update the isCall flag
-    function setIsCall(bytes1 flags, bool isCall) internal {
+  // Function to update the isCall flag
+    function setIsCall(bytes1 flags, bool isCall) pure internal returns (bytes1) {
         if (isCall) {
-            flags |= bytes1(uint8(1) << 3); // Set the 4th bit (isCall bit)
+            return  flags |= bytes1(uint8(1) << 3); // Set the 4th bit (isCall bit)
         } else {
-            flags &= ~bytes1(uint8(1) << 3); // Clear the 4th bit (isCall bit)
+            return  flags &= ~bytes1(uint8(1) << 3); // Clear the 4th bit (isCall bit)
         }
     }
 
     // Function to update the hasToPay flag
-    function setHasToPay(bytes1 flags, bool hasToPay) internal {
+    function setHasToPay(bytes1 flags, bool hasToPay)  pure internal returns (bytes1)  {
         if (hasToPay) {
-            flags |= bytes1(uint8(1) << 2); // Set the 3rd bit (hasToPay bit)
+            return  flags |= bytes1(uint8(1) << 2); // Set the 3rd bit (hasToPay bit)
         } else {
-            flags &= ~bytes1(uint8(1) << 2); // Clear the 3rd bit (hasToPay bit)
+            return  flags &= ~bytes1(uint8(1) << 2); // Clear the 3rd bit (hasToPay bit)
         }
     }
 
     // Function to update the isActive flag
-    function setIsActive(bytes1 flags, bool isActive) internal {
+    function setIsActive(bytes1 flags, bool isActive)  pure internal returns (bytes1) {
         if (isActive) {
-            flags |= bytes1(uint8(1) << 1); // Set the 2nd bit (isActive bit)
+            return flags |= bytes1(uint8(1) << 1); // Set the 2nd bit (isActive bit)
         } else {
-            flags &= ~bytes1(uint8(1) << 1); // Clear the 2nd bit (isActive bit)
+            return flags &= ~bytes1(uint8(1) << 1); // Clear the 2nd bit (isActive bit)
         }
     }
 
     // Function to update the isPaused flag
-    function setIsPaused(bytes1 flags, bool isPaused) internal {
+    function setIsPaused(bytes1 flags, bool isPaused)  pure internal returns (bytes1) {
         if (isPaused) {
-            flags |= bytes1(0x01); // Set the 1st bit (isPaused bit)
+            return  flags |= bytes1(0x01); // Set the 1st bit (isPaused bit)
         } else {
-            flags &= ~bytes1(0x01); // Clear the 1st bit (isPaused bit)
+            return  flags &= ~bytes1(0x01); // Clear the 1st bit (isPaused bit)
         }
     }
 
@@ -59,3 +59,4 @@ contract OptoUtils {
         return (uint8(flags) & 1) != 0;
     }
 }
+
