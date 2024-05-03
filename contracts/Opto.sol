@@ -13,7 +13,6 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
-
 contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{
     using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
@@ -73,7 +72,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         options[newOptionId] = Option(
             msg.sender,
             premiumReceiver,
-            setIsCall(statuses, isCall),
+            setIsCall(bytes1(0x00), isCall),
             premium,
             strikePrice,
             expirationDate,
@@ -201,14 +200,14 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // check if price is less than strike price
         bytes1 statuses = options[optionId].statuses;
         if (price < options[optionId].strikePrice) {
-            options[optionId] = setIsActive(statuses, false);
-            options[optionId] = setHasToPay(statuses, false);
+            options[optionId].statuses = setIsActive(statuses, false);
+            options[optionId].statuses = setHasToPay(statuses, false);
         }
         // calculate price to pay to buyers
         uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
         // set option result
-        options[optionId] = setIsActive(statuses, false);
-        options[optionId] = setHasToPay(statuses, true);
+        options[optionId].statuses = setIsActive(statuses, false);
+        options[optionId].statuses = setHasToPay(statuses, true);
         options[optionId].optionPrice = priceToPayPerUnit;
         // emit event
         emit Response(requestId, response, err);
