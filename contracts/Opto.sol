@@ -6,13 +6,13 @@ import "./OptoLibrary.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
-import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
-import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/v0.8/functions/dev/v1_0_0/FunctionsClient.sol";
+import {AutomationCompatibleInterface} from "lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/v0.8/automation/AutomationCompatible.sol";
+import {ConfirmedOwner} from "lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {FunctionsRequest} from "lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
 contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner {
-
+    using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
     mapping(bytes32 => uint256) public requestIds;
     mapping(OptionType => uint256) public queryTypes;
@@ -191,7 +191,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // get optionId from requestId
         uint256 optionId = requestIds[requestId];
         // get price from response
-        uint256 priceResult = uint256(response);
+        uint256 priceResult = abi.decode(response, (uint256));
         // get price max from option
         uint256 priceMax = options[optionId].capPerUnit;
         // check if price is less than price max
@@ -199,13 +199,13 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // check if price is less than strike price
         if (price < options[optionId].strikePrice) {
             options[optionId].isActive = false;
-            options[optionId].hastToPay = false;
+            options[optionId].hasToPay = false;
         }
         // calculate price to pay to buyers
         uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
         // set option result
         options[optionId].isActive = false;
-        options[optionId].hastToPay = true;
+        options[optionId].hasToPay = true;
         options[optionId].optionPrice = priceToPayPerUnit;
         // emit event
         emit Response(requestId, response, err);
