@@ -59,4 +59,3 @@ contract OptoUtils {
         return (uint8(flags) & 1) != 0;
     }
 }
-

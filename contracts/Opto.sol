@@ -13,7 +13,7 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
-contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{
+contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils {
     using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
     mapping(bytes32 => uint256) public requestIds;
@@ -34,7 +34,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     }
 
     function init(address _usdcAddress, uint32 _gasLimit, bytes32 _donID, uint64 _subscriptionId) onlyOwner external {
-        require(!isInitialized, "LighterFi: already initialized");
+        require(!isInitialized, "Opto: already initialized");
         usdcAddress = _usdcAddress;
         gasLimit = _gasLimit;
         donID = _donID;
