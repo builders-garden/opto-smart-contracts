@@ -48,7 +48,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
 
     function createOption(
         address premiumReceiver,
-        bool isCall,
+        bool isCallOption,
         uint256 premium,
         uint256 strikePrice, 
         uint256 expirationDate,
@@ -72,7 +72,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         options[newOptionId] = Option(
             msg.sender,
             premiumReceiver,
-            setIsCall(bytes1(0x00), isCall),
+            setIsCall(bytes1(0x00), isCallOption),
             premium,
             strikePrice,
             expirationDate,
