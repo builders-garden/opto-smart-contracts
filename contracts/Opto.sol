@@ -45,7 +45,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         queryTypes[OptionType.SUBGRAPH_QUERY_2] = 3;
     }
 
-
     function createOption(
         address premiumReceiver,
         bool isCallOption,
@@ -135,6 +134,14 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     }
 
     function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
+        // Check if there are active options
+        upkeepNeeded = activeOptions.length > 0;
+        // If there are active options, return the first one
+        if (upkeepNeeded) {
+            performData = abi.encode(0, activeOptions[0]);
+        }
+        return (upkeepNeeded, performData);
+
     }
     function performUpkeep(bytes calldata  performData) external override {
         (, uint optionId) = abi.decode(performData, (uint, uint));
@@ -152,7 +159,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         require(!hasToPay(option.statuses), "Option already settled");
         // Send request to Chainlink
         bytes32 requestId = _invokeSendRequest(optionId, option.optionType, option.optionQueryId, option.assetAddressId);
-
         // Store requestId for optionId
         requestIds[requestId] = optionId;
     }
@@ -208,6 +214,15 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         options[optionId].statuses = setIsActive(statuses, false);
         options[optionId].statuses = setHasToPay(statuses, true);
         options[optionId].optionPrice = priceToPayPerUnit;
+        // remove option from active options
+        // TODO: Optimize this
+        for (uint i = 0; i < activeOptions.length; i++) {
+            if (activeOptions[i] == optionId) {
+                activeOptions[i] = activeOptions[activeOptions.length - 1];
+                activeOptions.pop();
+                break;
+            }
+        }
         // emit event
         emit Response(requestId, response, err);
     }

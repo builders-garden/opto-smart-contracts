@@ -1,17 +1,13 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-const JAN_1ST_2030 = 1893456000;
-const ONE_GWEI: bigint = 1_000_000_000n;
 
-const LockModule = buildModule("LockModule", (m) => {
-  const unlockTime = m.getParameter("unlockTime", JAN_1ST_2030);
-  const lockedAmount = m.getParameter("lockedAmount", ONE_GWEI);
+const OptoModule = buildModule("OptoModule", (m) => {
+  const _owner = "0x8e251547f0fD650e0573711EF733F13eBA1505aD"
+  const _router = "0xb83E47C2bC239B3bf370bc41e1459A34b41238D0"
 
-  const lock = m.contract("Lock", [unlockTime], {
-    value: lockedAmount,
-  });
+  const opto = m.contract("Opto", [_owner, _router]);
 
-  return { lock };
+  return { opto };
 });
 
-export default LockModule;
+export default OptoModule;
