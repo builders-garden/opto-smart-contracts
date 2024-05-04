@@ -55,7 +55,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         OptionType optionType,
         uint256 optionQueryId,
         uint256 assetAddressId,
-        uint256 assetId,
         uint256 units,
         uint256 capPerUnit
     ) public {
