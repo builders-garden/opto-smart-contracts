@@ -60,14 +60,14 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Validate parameters
         // TODO: Validate parameters
 
-        // Increment option id
-        uint256 newOptionId = lastOptionId++;
         // Calculate total collateral from the writer
         uint256 collateral = capPerUnit * units;
         // Transfer collateral from the writer to the contract
         require(IERC20(usdcAddress).transferFrom(msg.sender, address(this), collateral), "Transfer failed");
+        // Update lastOptionInd
+        lastOptionId += 1;
         // Create option    
-        options[newOptionId] = Option(
+        options[lastOptionId] = Option(
             msg.sender,
             premiumReceiver,
             setIsCall(bytes1(0x00), isCallOption),
@@ -83,8 +83,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             0
           
         );
-        // Update last option id
-        lastOptionId = newOptionId;
     }
 
     function buyOption(uint256 id, uint256 units) public {
