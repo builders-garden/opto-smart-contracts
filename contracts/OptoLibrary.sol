@@ -97,7 +97,9 @@ library OptoLib {
         string memory query;
         string memory endpoint;
         string memory rpcAddress;
-        string[] memory params;
+        string[] memory params = new string[](2);
+        params[0] = optionId;
+
         // get query
         if (index == 0) {
             query = RPC_CALL_QUERY;
@@ -122,6 +124,7 @@ library OptoLib {
             } else if (contractQueryAddress == 10) {
                 rpcAddress = RPC_CALL_ADDRESS_10;
             }
+            params[1] = rpcAddress;
         } else if (index == 1) {
             query = SUBGRAPH_QUERY_1;
             if (optionalQueryId == 1) {
@@ -129,8 +132,10 @@ library OptoLib {
             } else if (optionalQueryId == 2) {
                 endpoint = SUBGRAPH_ENDPOINT_2;
             }
+            params[1] = endpoint;
         } else {
             query = SUBGRAPH_QUERY_2;
+            params[1] = "no_params";
         }
         // build params array with rpcAddress and endpoint
         params[0] = optionId;

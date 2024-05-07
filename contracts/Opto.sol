@@ -4,7 +4,7 @@ pragma solidity ^0.8.6;
 import "./IOpto.sol";
 import "./OptoLibrary.sol";
 import "./OptoUtils.sol";
-
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -40,9 +40,9 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         donID = _donID;
         subscriptionId = _subscriptionId;
         isInitialized = true;
-        queryTypes[OptionType.RPC_CALL_QUERY] = 1;
-        queryTypes[OptionType.SUBGRAPH_QUERY_1] = 2;
-        queryTypes[OptionType.SUBGRAPH_QUERY_2] = 3;
+        queryTypes[OptionType.RPC_CALL_QUERY] = 0;
+        queryTypes[OptionType.SUBGRAPH_QUERY_1] = 1;
+        queryTypes[OptionType.SUBGRAPH_QUERY_2] = 2;
     }
 
     function createOption(
