@@ -150,7 +150,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Check if option is paused
         require(!isPaused(option.statuses), "Option is paused");
         // Check if option is expired
-        require(block.timestamp >= option.expirationDate, "Option is expired");
+        require(block.timestamp >= option.expirationDate, "Option isn't expired yet");
         // Check if option is deactived
         require(isActive(option.statuses), "Option is not active");
         // Check if option is not already claimed
