@@ -92,8 +92,8 @@ library OptoLib {
         string memory query;
         string memory endpoint;
         string memory rpcAddress;
-        string[] memory params = new string[](2);
-        params[0] = optionId;
+        string[] memory params = new string[](3);
+   
 
         // get query
         if (index == 0) {
