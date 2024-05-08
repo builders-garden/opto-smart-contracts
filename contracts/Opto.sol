@@ -29,7 +29,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     uint32 public gasLimit;
     uint256[] public activeOptions;
 
-
     constructor(address _owner, address _router) ERC1155("") FunctionsClient(_router) ConfirmedOwner(_owner) { // TODO: add 1155 constructor data URI link
     }
 
@@ -46,10 +45,10 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     }
 
     function createOption(
-        address premiumReceiver,
         bool isCallOption,
         uint256 premium,
         uint256 strikePrice, 
+        uint256 buyDeadline,
         uint256 expirationDate,
         OptionType optionType,
         uint256 optionQueryId,
@@ -58,8 +57,12 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint256 capPerUnit
     ) public {
         // Validate parameters
-        // TODO: Validate parameters
-
+        require(premium > 0, "Premium must be greater than 0");
+        require(strikePrice > 0, "Strike price must be greater than 0");
+        require(buyDeadline > block.timestamp, "Buy deadline must be in the future");
+        require(expirationDate > buyDeadline, "Expiration date must be after buy deadline");
+        require(units > 0, "Units must be greater than 0");
+        require(capPerUnit > 0, "Cap per unit must be greater than 0");
         // Calculate total collateral from the writer
         uint256 collateral = capPerUnit * units;
         // Transfer collateral from the writer to the contract
@@ -69,8 +72,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Create option    
         options[lastOptionId] = Option(
             msg.sender,
-            premiumReceiver,
             setIsCall(bytes1(0x00), isCallOption),
+            buyDeadline,
             premium,
             strikePrice,
             expirationDate,
@@ -81,7 +84,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             capPerUnit,
             units,
             0
-          
         );
     }
 
@@ -91,13 +93,13 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Check if option is paused
         require(!isPaused(option.statuses), "Option is paused");
         // Check if option is not expired
-        require(block.timestamp < option.expirationDate, "Option is expired");
+        require(block.timestamp < option.buyDeadline, "Option can no longer be bought");
         // Check if there are enough units left
         require(option.unitsLeft >= units, "Not enough units left");
         // Calculate total price
         uint256 totalPrice = option.premium * units;
         // Transfer premium from the buyer to the writer
-        require(IERC20(usdcAddress).transferFrom(msg.sender, option.premiumReceiver, totalPrice), "Transfer failed");
+        require(IERC20(usdcAddress).transferFrom(msg.sender, option.writer, totalPrice), "Transfer failed");
         // If this is the first time the option is bought, make the option active
         if (option.unitsLeft == option.units && !isActive(option.statuses)) {
             option.statuses = setIsActive(option.statuses, true);
@@ -129,6 +131,19 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint256 price = option.optionPrice * units;
         // Transfer collateral from the contract to the buyer
         require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
+    }
+
+    function deleteOption(uint256 id) public {
+        // Get option from storage
+        Option storage option = options[id];
+        // Check if option is deactived
+        require(!isActive(option.statuses), "Option already activated");
+        // Check if option is not already claimed
+        require(!hasToPay(option.statuses), "Option already settled");
+        // Transfer collateral from the contract to the writer
+        require(IERC20(usdcAddress).transfer(option.writer, option.units * option.capPerUnit), "Transfer failed");
+        // Delete option
+        delete options[id];
     }
 
     function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
@@ -201,16 +216,36 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         priceMax >= priceResult ? price = priceResult : price = priceMax;
         // check if price is less than strike price
         bytes1 statuses = options[optionId].statuses;
-        if (price < options[optionId].strikePrice) {
-            options[optionId].statuses = setIsActive(statuses, false);
-            options[optionId].statuses = setHasToPay(statuses, false);
+        // check if the option is a call option
+        bool isCallOption = isCall(statuses);
+        // put and call cases
+        if (isCallOption) {
+            // check if the price is less than the strike price
+            if (price < options[optionId].strikePrice) {
+                // set option result
+                options[optionId].statuses = setIsActive(statuses, false);
+            } else {
+                // calculate price to pay to buyers
+                uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
+                // set option result
+                options[optionId].statuses = setIsActive(statuses, false);
+                options[optionId].statuses = setHasToPay(statuses, true);
+                options[optionId].optionPrice = priceToPayPerUnit;
+            }
+        } else {
+            // check if the price is greater than the strike price
+            if (price > options[optionId].strikePrice) {
+                // set option result
+                options[optionId].statuses = setIsActive(statuses, false);
+            } else {
+                // calculate price to pay to buyers
+                uint256 priceToPayPerUnit = options[optionId].strikePrice - price; 
+                // set option result
+                options[optionId].statuses = setIsActive(statuses, false);
+                options[optionId].statuses = setHasToPay(statuses, true);
+                options[optionId].optionPrice = priceToPayPerUnit;
+            }
         }
-        // calculate price to pay to buyers
-        uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
-        // set option result
-        options[optionId].statuses = setIsActive(statuses, false);
-        options[optionId].statuses = setHasToPay(statuses, true);
-        options[optionId].optionPrice = priceToPayPerUnit;
         // remove option from active options
         // TODO: Optimize this
         for (uint i = 0; i < activeOptions.length; i++) {

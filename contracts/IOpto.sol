@@ -12,8 +12,8 @@ interface IOpto {
     // Option struct
     struct Option {
         address writer;
-        address premiumReceiver;
         bytes1 statuses;
+        uint256 buyDeadline;
         uint256 premium; 
         uint256 strikePrice; 
         uint256 expirationDate;
@@ -70,5 +70,4 @@ interface IOpto {
         bytes response,
         bytes err
     );
-
 }
