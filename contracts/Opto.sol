@@ -90,6 +90,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     function buyOption(uint256 id, uint256 units) public {
         // Get option from storage
         Option storage option = options[id];
+        // Check if option exists
+        require(option.writer != address(0), "Option does not exist");
         // Check if option is paused
         require(!isPaused(option.statuses), "Option is paused");
         // Check if option is not expired
