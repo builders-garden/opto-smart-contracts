@@ -3,87 +3,167 @@ pragma solidity ^0.8.6;
 
 library OptoLib {
 
-    // Chainlink functions query schemas
-    string public constant RPC_CALL_QUERY = "rpc_call";
-    string public constant SUBGRAPH_QUERY_1 = 
-        "let subgraphURL = args[0]"
+    // RPC CALL FOR PRICE FEEDS ON ARB 1 args
+    string public constant RPC_CALL_QUERY = 
+    "let feedAddress = args[0]"
+    "const request = async () => {"
+        "try {"
+          "const response = await Functions.makeHttpRequest({"
+            "url: 'https://arb1.arbitrum.io/rpc',"
+            "method: 'POST',"
+            "data: {"
+              "id: 1,"
+              "jsonrpc: '2.0',"
+              "method: 'eth_call',"
+              "params: ["
+                "{"
+                  "to: feedAddress,"
+                  "data: '0x50d25bcd'," 
+                "},"
+                "'latest',"
+              "],"
+            "},"
+          "})"
+          "const usdcPrice = response.data.result"
+          "return usdcPrice"
+        "} catch (error) {"
+          "console.error('Error occurred:', error)"
+          "throw error" 
+        "}"
+      "}"
+      "let usdcPrice"
+      "try{"
+      "const result = await request()"
+      "usdcPrice = Math.round(result / 10**2)"
+      "console.log(usdcPrice)"
+    "} catch (error) {"
+      "console.error('Failed to get balance:', error)"
+    "}"
+    "return Functions.encodeUint256(BigInt(usdcPrice))";
 
-"const fetchPrice = () => Functions.makeHttpRequest({"
-    "url: subgraphURL,"
-    "method: 'POST',"
-    "data: {"
-        "query: `query MyQuery {feeAggregators{gas_average_daily}}`,"
-    "},"
-"})"
 
-"const request = async () => {"
-  "try {"
-    "const response = await Functions.makeHttpRequest({"
-      "url: 'https://arb1.arbitrum.io/rpc',"
-      "method: 'POST',"
-      "data: {"
-        "id: 1,"
-        "jsonrpc: '2.0',"
-        "method: 'eth_call',"
-        "params: ["
-          "{"
-            "to: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',"
-            "data: '0x50d25bcd'," 
+
+    // Dynamic String for gas price 1 arg
+      string public constant SUBGRAPH_QUERY_1 = 
+      "let subgraphURL = args[0]"
+      "const fetchPrice = () => Functions.makeHttpRequest({"
+          "url: subgraphURL,"
+          "method: 'POST',"
+          "data: {"
+              "query: `query MyQuery {feeAggregators{gas_average_daily}}`,"
           "},"
-          "'latest',"
-        "],"
-      "},"
+      "})"
+      "const request = async () => {"
+        "try {"
+          "const response = await Functions.makeHttpRequest({"
+            "url: 'https://arb1.arbitrum.io/rpc',"
+            "method: 'POST',"
+            "data: {"
+              "id: 1,"
+              "jsonrpc: '2.0',"
+              "method: 'eth_call',"
+              "params: ["
+                "{"
+                  "to: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',"
+                  "data: '0x50d25bcd'," 
+                "},"
+                "'latest',"
+              "],"
+            "},"
+          "})"
+          "const balance = response.data.result"
+          "return balance"
+        "} catch (error) {"
+          "console.error('Error occurred:', error)"
+          "throw error" 
+        "}"
+      "}"
+      "let ethUsdcPrice"
+      "try {"
+        "const result = await request()"
+        "ethUsdcPrice = (parseInt(result, 16) / 10**8)"
+        "console.log(ethUsdcPrice)"
+      "} catch (error) {"
+        "console.error('Failed to get balance:', error)"
+      "}"
+      "const {"
+          "error,"
+            "data: {"
+              "errors,"
+              "data,"
+            "},"
+        "} = await fetchPrice()"
+      "const {feeAggregators: [{ gas_average_daily }]} = data"
+      "let usdc_gas_average_daily = (gas_average_daily * ethUsdcPrice) / 1e12"
+      "let rounded_usdc_gas_average_daily = Math.floor(usdc_gas_average_daily)"
+      "return Functions.encodeUint256(BigInt(rounded_usdc_gas_average_daily))";
+    // Eth specific call for blob price - 0 args
+    string public constant SUBGRAPH_QUERY_2 = 
+    "const fetchPrice = () => Functions.makeHttpRequest({"
+        "url: 'https://api.studio.thegraph.com/query/73482/opto-basefees-ethereum/version/latest',"
+        "method: 'POST',"
+        "data: {"
+            "query: `query MyQuery {feeAggregators{blob_average_daily}}`,"
+        "},"
     "})"
+    "const request = async () => {"
+      "try {"
+        "const response = await Functions.makeHttpRequest({"
+          "url: 'https://arb1.arbitrum.io/rpc',"
+          "method: 'POST',"
+          "data: {"
+            "id: 1,"
+            "jsonrpc: '2.0',"
+            "method: 'eth_call',"
+            "params: ["
+              "{"
+                "to: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',"
+                "data: '0x50d25bcd'," 
+              "},"
+              "'latest',"
+            "],"
+          "},"
+        "})"
+        "const balance = response.data.result"
+        "return balance"
+      "} catch (error) {"
+        "console.error('Error occurred:', error)"
+        "throw error" 
+      "}"
+    "}"
+    "let ethUsdcPrice"
+    "try {"
+      "const result = await request()"
+      "ethUsdcPrice = (parseInt(result, 16) / 10**8)"
+      "console.log(ethUsdcPrice)"
+    "} catch (error) {"
+      "console.error('Failed to get balance:', error)"
+    "}"
+    "const {"
+        "error,"
+          "data: {"
+            "errors,"
+            "data,"
+          "},"
+      "} = await fetchPrice()"
+    "const {feeAggregators: [{ blob_average_daily }]} = data"
+    "let usdc_blob_average_daily = (blob_average_daily * ethUsdcPrice) / 1e12"
+    "let rounded_usdc_blob_average_daily = Math.floor(usdc_blob_average_daily)"
+    "return Functions.encodeUint256(BigInt(rounded_usdc_blob_average_daily))";
 
-    
-    "const balance = response.data.result"
-    "return balance"
-  "} catch (error) {"
-    "console.error('Error occurred:', error)"
-    "throw error" 
-  "}"
-"}"
 
-"let ethUsdcPrice"
-
-"try {"
-  "const result = await request()"
-  "ethUsdcPrice = (parseInt(result, 16) / 10**8)"
-  "console.log(ethUsdcPrice)"
-"} catch (error) {"
-  "console.error('Failed to get balance:', error)"
-"}"
-
-"const {"
-    "error,"
-      "data: {"
-        "errors,"
-        "data,"
-      "},"
-  "} = await fetchPrice()"
-
-"const {feeAggregators: [{ gas_average_daily }]} = data"
-
-"let usdc_gas_average_daily = (gas_average_daily * ethUsdcPrice) / 1e12"
-"let rounded_usdc_gas_average_daily = Math.floor(usdc_gas_average_daily)"
-
-"return Functions.encodeUint256(BigInt(rounded_usdc_gas_average_daily))";
-
-    string public constant SUBGRAPH_QUERY_2 = "subgraph";
-
-    string public constant RPC_CALL_ADDRESS_1 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_2 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_3 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_4 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_5 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_6 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_7 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_8 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_9 = "rpc_call";
-    string public constant RPC_CALL_ADDRESS_10 = "rpc_call";
+    string public constant RPC_CALL_ADDRESS_1 = "0x8d0CC5f38f9E802475f2CFf4F9fc7000C2E1557c"; // Apple
+    string public constant RPC_CALL_ADDRESS_2 = "0xd6a77691f071E98Df7217BED98f38ae6d2313EBA"; // Amazon
+    string public constant RPC_CALL_ADDRESS_3 = "0x950DC95D4E537A14283059bADC2734977C454498"; // Coinbase
+    string public constant RPC_CALL_ADDRESS_4 = "0x1D1a83331e9D255EB1Aaf75026B60dFD00A252ba"; // Alphabet
+    string public constant RPC_CALL_ADDRESS_5 = "0xDde33fb9F21739602806580bdd73BAd831DcA867"; // Microsoft
+    string public constant RPC_CALL_ADDRESS_6 = "0x4881A4418b5F2460B21d6F08CD5aA0678a7f262F"; // Nvidia
+    string public constant RPC_CALL_ADDRESS_7 = "0x3609baAa0a9b1f0FE4d6CC01884585d0e191C3E3"; // Tesla
+    string public constant RPC_CALL_ADDRESS_8 = "0x1F954Dc24a49708C26E0C1777f16750B5C6d5a2c"; // GOLD
+    string public constant RPC_CALL_ADDRESS_9 = "0xC56765f04B248394CF1619D20dB8082Edbfa75b1"; // Silver
 
     string public constant SUBGRAPH_ENDPOINT_1 = "https://api.studio.thegraph.com/query/73482/opto-basefees-ethereum/version/latest";
-    string public constant SUBGRAPH_ENDPOINT_2 = "subgraph";
+    string public constant SUBGRAPH_ENDPOINT_2 = "subgraph-avax";
 
 
     function getQueryAndParams(uint256 index, uint256 optionalQueryId, uint256 contractQueryAddress) internal pure returns (string memory, string[] memory) {
@@ -116,9 +196,7 @@ library OptoLib {
                 rpcAddress = RPC_CALL_ADDRESS_8;
             } else if (contractQueryAddress == 9) {
                 rpcAddress = RPC_CALL_ADDRESS_9;
-            } else if (contractQueryAddress == 10) {
-                rpcAddress = RPC_CALL_ADDRESS_10;
-            }
+            } 
             params[0] = rpcAddress;
         } else if (index == 1) {
             query = SUBGRAPH_QUERY_1;
