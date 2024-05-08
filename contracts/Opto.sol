@@ -156,17 +156,16 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Check if option is not already claimed
         require(!hasToPay(option.statuses), "Option already settled");
         // Send request to Chainlink
-        bytes32 requestId = _invokeSendRequest(optionId, option.optionType, option.optionQueryId, option.assetAddressId);
+        bytes32 requestId = _invokeSendRequest(option.optionType, option.optionQueryId, option.assetAddressId);
         // Store requestId for optionId
         requestIds[requestId] = optionId;
     }
 
-    function _invokeSendRequest(uint256 optionId, OptionType optionType,  uint256 optionQueryId, uint256 queryAddress) internal returns (bytes32) {
+    function _invokeSendRequest(OptionType optionType,  uint256 optionQueryId, uint256 queryAddress) internal returns (bytes32) {
         // Get query id
         uint256 queryId = queryTypes[optionType];
-        string memory optionIdString = Strings.toString(optionId);
         // Get query and params from opto Library
-        (string memory source, string[] memory args) = OptoLib.getQueryAndParams(optionIdString, queryId, optionQueryId, queryAddress);
+        (string memory source, string[] memory args) = OptoLib.getQueryAndParams(queryId, optionQueryId, queryAddress);
         // Create request
         FunctionsRequest.Request memory req;
         // Initialize the request with JS code

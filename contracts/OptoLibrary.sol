@@ -82,17 +82,17 @@ library OptoLib {
     string public constant RPC_CALL_ADDRESS_9 = "rpc_call";
     string public constant RPC_CALL_ADDRESS_10 = "rpc_call";
 
-    string public constant SUBGRAPH_ENDPOINT_1 = "subgraph";
+    string public constant SUBGRAPH_ENDPOINT_1 = "https://api.studio.thegraph.com/query/73482/opto-basefees-ethereum/version/latest";
     string public constant SUBGRAPH_ENDPOINT_2 = "subgraph";
 
 
-    function getQueryAndParams(string memory optionId, uint256 index, uint256 optionalQueryId, uint256 contractQueryAddress) internal pure returns (string memory, string[] memory) {
+    function getQueryAndParams(uint256 index, uint256 optionalQueryId, uint256 contractQueryAddress) internal pure returns (string memory, string[] memory) {
         // Access constant strings from the Contract
         // You can hardcode the index or use some logic to select the string
         string memory query;
         string memory endpoint;
         string memory rpcAddress;
-        string[] memory params = new string[](3);
+        string[] memory params = new string[](1);
    
 
         // get query
@@ -119,7 +119,7 @@ library OptoLib {
             } else if (contractQueryAddress == 10) {
                 rpcAddress = RPC_CALL_ADDRESS_10;
             }
-            params[1] = rpcAddress;
+            params[0] = rpcAddress;
         } else if (index == 1) {
             query = SUBGRAPH_QUERY_1;
             if (optionalQueryId == 1) {
@@ -127,15 +127,11 @@ library OptoLib {
             } else if (optionalQueryId == 2) {
                 endpoint = SUBGRAPH_ENDPOINT_2;
             }
-            params[1] = endpoint;
+            params[0] = endpoint;
         } else {
             query = SUBGRAPH_QUERY_2;
-            params[1] = "no_params";
+            params[0] = "no_params";
         }
-        // build params array with rpcAddress and endpoint
-        params[0] = optionId;
-        params[1] = rpcAddress;
-        params[2] = endpoint;
         return (query, params);
     }
 
