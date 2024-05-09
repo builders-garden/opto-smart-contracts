@@ -18,12 +18,15 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     mapping(uint256 => Option) public options;
     mapping(bytes32 => uint256) public requestIds;
     mapping(OptionType => uint256) public queryTypes;
+    mapping(uint256 => string) public customOptionQueries;
+    mapping(uint256 => string[]) public customOptionArgs;
 
     // Storage variables
     address public usdcAddress;
     uint256 public lastOptionId;
     bool public isInitialized;
     bytes32 public s_lastRequestId;
+    uint256 public s_lastTimestamp;
     bytes32 public donID;
     uint64 public subscriptionId;
     uint32 public gasLimit;
@@ -42,6 +45,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         queryTypes[OptionType.RPC_CALL_QUERY] = 0;
         queryTypes[OptionType.SUBGRAPH_QUERY_1] = 1;
         queryTypes[OptionType.SUBGRAPH_QUERY_2] = 2;
+        queryTypes[OptionType.CUSTOM_QUERY] = 3;
     }
 
     function createOption(
@@ -85,6 +89,51 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             units,
             0
         );
+    }
+
+    function createCustomOption(
+        bool isCallOption,
+        uint256 premium,
+        uint256 strikePrice, 
+        uint256 buyDeadline,
+        uint256 expirationDate,
+        uint256 units,
+        uint256 capPerUnit,
+        string memory query,
+        string[] memory args
+    ) public {
+        // Validate parameters
+        require(premium > 0, "Premium must be greater than 0");
+        require(strikePrice > 0, "Strike price must be greater than 0");
+        require(buyDeadline > block.timestamp, "Buy deadline must be in the future");
+        require(expirationDate > buyDeadline, "Expiration date must be after buy deadline");
+        require(units > 0, "Units must be greater than 0");
+        require(capPerUnit > 0, "Cap per unit must be greater than 0");
+        // Calculate total collateral from the writer
+        uint256 collateral = capPerUnit * units;
+        // Transfer collateral from the writer to the contract
+        require(IERC20(usdcAddress).transferFrom(msg.sender, address(this), collateral), "Transfer failed");
+        // Update lastOptionInd
+        lastOptionId += 1;
+        // Create option    
+        options[lastOptionId] = Option(
+            msg.sender,
+            setIsCall(bytes1(0x00), isCallOption),
+            buyDeadline,
+            premium,
+            strikePrice,
+            expirationDate,
+            OptionType.CUSTOM_QUERY,
+            99, // dummy value
+            99, // dummy value
+            units,
+            capPerUnit,
+            units,
+            0
+        );
+        // Store custom query
+        customOptionQueries[lastOptionId] = query;
+        customOptionArgs[lastOptionId] = args;
     }
 
     function buyOption(uint256 id, uint256 units) public {
@@ -151,12 +200,34 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory performData) {
         // Check if there are active options
         upkeepNeeded = activeOptions.length > 0;
-        // If there are active options, return the first one
+        // Check timestamp to avoid spamming
+        require (block.timestamp - s_lastTimestamp > 180, "Too soon");
+        // If there are active options, cicle through them
         if (upkeepNeeded) {
-            performData = abi.encode(0, activeOptions[0]);
+            for (uint i = 0; i < activeOptions.length; i++) {
+                // Get option from storage
+                Option memory option = options[activeOptions[i]];
+                // Check if option is paused
+                if (isPaused(option.statuses)) {
+                    continue;
+                }
+                // Check if option is not expired
+                if (block.timestamp < option.expirationDate) {
+                    continue;
+                }
+                // Check if option is deactived
+                if (!isActive(option.statuses)) {
+                    continue;
+                }
+                // Check if option is not already settled
+                if (hasToPay(option.statuses)) {
+                    continue;
+                }
+                // If all checks pass, return the optionId
+                performData = abi.encode(0, activeOptions[i]);
+                return (upkeepNeeded, performData);
+            }
         }
-        return (upkeepNeeded, performData);
-
     }
     function performUpkeep(bytes calldata  performData) external override {
         (, uint optionId) = abi.decode(performData, (uint, uint));
@@ -176,11 +247,33 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         bytes32 requestId = _invokeSendRequest(option.optionType, option.optionQueryId, option.assetAddressId);
         // Store requestId for optionId
         requestIds[requestId] = optionId;
+        // Store the timestamp of the last request
+        s_lastTimestamp = block.timestamp;
     }
 
     function _invokeSendRequest(OptionType optionType,  uint256 optionQueryId, uint256 queryAddress) internal returns (bytes32) {
         // Get query id
         uint256 queryId = queryTypes[optionType];
+        // Check if it's a custom query
+        if (queryId == 3) {
+            // Custom query
+            string memory query = customOptionQueries[optionQueryId];
+            string[] memory args = customOptionArgs[optionQueryId];
+            // Create request
+            FunctionsRequest.Request memory req;
+            // Initialize the request with JS code
+            req.initializeRequestForInlineJavaScript(query); 
+            // Set the arguments for the request
+            req.setArgs(args); 
+            // Send the request and store the request ID
+            bytes32 requestId = _sendRequest(
+                req.encodeCBOR(),
+                subscriptionId,
+                gasLimit,
+                donID
+            );
+            return requestId;
+        }
         // Get query and params from opto Library
         (string memory source, string[] memory args) = OptoLib.getQueryAndParams(queryId, optionQueryId, queryAddress);
         // Create request
@@ -246,15 +339,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
                 options[optionId].statuses = setIsActive(statuses, false);
                 options[optionId].statuses = setHasToPay(statuses, true);
                 options[optionId].optionPrice = priceToPayPerUnit;
-            }
-        }
-        // remove option from active options
-        // TODO: Optimize this
-        for (uint i = 0; i < activeOptions.length; i++) {
-            if (activeOptions[i] == optionId) {
-                activeOptions[i] = activeOptions[activeOptions.length - 1];
-                activeOptions.pop();
-                break;
             }
         }
         // emit event
