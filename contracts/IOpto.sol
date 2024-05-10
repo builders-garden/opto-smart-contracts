@@ -36,7 +36,7 @@ interface IOpto {
         uint256 strikePrice,
         uint256 expirationDate,
         OptionType optionType,
-        address feedAddress,
+        uint assetId,
         uint256 optionQueryId,
         uint256 units,
         uint256 capPerUnit
