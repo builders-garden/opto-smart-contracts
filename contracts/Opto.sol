@@ -273,7 +273,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         }
         // prevent out of bounds
         if (endIndex > arrayLength) {
-            endIndex = arrayLength;
+            endIndex = arrayLength-1;
         }
         Option memory option;
         // check expired element in active options
@@ -316,6 +316,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             require(isActive(option.statuses), "Option is not active");
             // Check if option is not already claimed
             require(!hasToPay(option.statuses), "Option already settled");
+            // set option as not active
+            options[optionId].statuses = setIsActive(option.statuses, false);
             // Send request to Chainlink
             bytes32 requestId = _invokeSendRequest(
                 option.optionType,
@@ -328,7 +330,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         if (op == 2){
             setExhausted(optionId);
         }
-        
     }
 
     function _invokeSendRequest(
@@ -371,82 +372,86 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         bytes memory response,
         bytes memory err
     ) internal override {
-        uint id = requestIds[requestId];
-        Option memory option = options[id];
-
-        uint256 price;
-        // get optionId from requestId
-        uint256 optionId = requestIds[requestId];
-        // get price from response
-        uint256 priceResult = abi.decode(response, (uint256));
-        // get price max from option
-        uint256 priceMax = options[optionId].capPerUnit;
-        // check if price is less than price max
-        priceMax >= priceResult ? price = priceResult : price = priceMax;
-        // check if price is less than strike price
-        bytes1 statuses = options[optionId].statuses;
-        // check if the option is a call option
-        bool isCallOption = isCall(statuses);
-
-        options[optionId].statuses = setIsActive(statuses, false);
-        // put and call cases
-        if (isCallOption) {
-            // check if the price is less than the strike price
-            if (price < options[optionId].strikePrice) {
-                // set option result
-                uint refundableAmount = option.units * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
-                    option.writer,
-                    refundableAmount
-                );
-                
-            } else {
-                // calculate price to pay to buyers
-                uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
-                // set option result
-                options[optionId].statuses = setHasToPay(statuses, true);
-                options[optionId].optionPrice = priceToPayPerUnit;
-
-                uint refundableAmount = option.unitsLeft * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
-                    option.writer,
-                    refundableAmount
-                );
-            }
+        // Handle error response
+        if (err.length != 0) {
+            //TODO: handle error
+            // premium <= cap da aggiungere a createOption
+            //isPaused = true;
+            // cambiare da isPuased a errored
         } else {
-            // check if the price is greater than the strike price
-            if (price > options[optionId].strikePrice) {
-                // set option result
-                 uint refundableAmount = option.unitsLeft * option.capPerUnit;
-                if (refundableAmount > 0){
-                        IERC20(usdcAddress).transferFrom(
+            uint id = requestIds[requestId];
+            Option memory option = options[id];
+
+            uint256 price;
+            // get optionId from requestId
+            uint256 optionId = requestIds[requestId];
+            // get price from response
+            uint256 priceResult = abi.decode(response, (uint256));
+            // get price max from option
+            uint256 priceMax = options[optionId].capPerUnit;
+            // check if price is less than price max
+            priceMax >= priceResult ? price = priceResult : price = priceMax;
+            // check if price is less than strike price
+            bytes1 statuses = options[optionId].statuses;
+            // check if the option is a call option
+            if (isCallOption) {
+                // check if the price is less than the strike price
+                if (price < options[optionId].strikePrice) {
+                    // set option result
+                    uint refundableAmount = option.units * option.capPerUnit;
+                    IERC20(usdcAddress).transferFrom(
                         address(this),
                         option.writer,
                         refundableAmount
                     );
-                }
-                
-            } else {
-                // calculate price to pay to buyers
-                uint256 priceToPayPerUnit = options[optionId].strikePrice - price; 
-                // set option result
-          
-                options[optionId].statuses = setHasToPay(statuses, true);
-                options[optionId].optionPrice = priceToPayPerUnit;
+                    
+                } else {
+                    // calculate price to pay to buyers
+                    uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
+                    // set option result
+                    options[optionId].statuses = setHasToPay(statuses, true);
+                    options[optionId].optionPrice = priceToPayPerUnit;
 
-                uint refundableAmount = option.unitsLeft * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
-                    option.writer,
-                    refundableAmount
-                );
+                    uint refundableAmount = option.unitsLeft * option.capPerUnit;
+                    if (refundableAmount > 0) {
+                        IERC20(usdcAddress).transferFrom(
+                            address(this),
+                            option.writer,
+                            refundableAmount
+                        );
+                    }
+                }
+            } else {
+                // check if the price is greater than the strike price
+                if (price > options[optionId].strikePrice) {
+                    // set option result
+                    uint refundableAmount = option.units * option.capPerUnit;
+                            IERC20(usdcAddress).transferFrom(
+                            address(this),
+                            option.writer,
+                            refundableAmount
+                        );
+                } else {
+                    // calculate price to pay to buyers
+                    uint256 priceToPayPerUnit = options[optionId].strikePrice - price; 
+                    // set option result
+            
+                    options[optionId].statuses = setHasToPay(statuses, true);
+                    options[optionId].optionPrice = priceToPayPerUnit;
+
+                    uint refundableAmount = option.unitsLeft * option.capPerUnit;
+                    if (refundableAmount > 0) {
+                        IERC20(usdcAddress).transferFrom(
+                            address(this),
+                            option.writer,
+                            refundableAmount
+                        );
+                    }
+                }
             }
+            options[id] = option;
+            // emit event
+            emit Response(requestId, response, err);
         }
-        options[id] = option;
-        // emit event
-        emit Response(requestId, response, err);
     }
-    
 }
