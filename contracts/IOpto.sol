@@ -13,15 +13,13 @@ interface IOpto {
     struct Option {
         address writer;
         bytes1 statuses;
+        OptionType optionType;
         uint256 buyDeadline;
         uint256 premium; 
         uint256 strikePrice; 
         uint256 expirationDate;
-
-        OptionType optionType;
         uint256 optionQueryId;
         uint256 assetAddressId;
-        
         uint256 units;
         uint256 capPerUnit; 
         uint256 unitsLeft;
@@ -33,7 +31,6 @@ interface IOpto {
     event OptionCreated(
         uint256 indexed optionId,
         address indexed writer,
-        address premiumReceiver,
         bool isCall,
         uint256 premium,
         uint256 strikePrice,
@@ -42,6 +39,21 @@ interface IOpto {
         uint256 optionQueryId,
         uint256 units,
         uint256 capPerUnit
+    );
+
+       event CustomOptionCreated(
+        uint256 indexed optionId,
+        address indexed writer,
+        bool isCall,
+        uint256 premium,
+        uint256 strikePrice,
+        uint256 expirationDate,
+        OptionType optionType,
+        uint256 optionQueryId,
+        uint256 units,
+        uint256 capPerUnit,
+        string name,
+        string desc
     );
 
     event OptionBought(
@@ -70,4 +82,5 @@ interface IOpto {
         bytes response,
         bytes err
     );
+
 }
