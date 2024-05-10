@@ -81,5 +81,10 @@ interface IOpto {
         bytes response,
         bytes err
     );
-
+    
+    event erroredClaimed(
+        uint256 indexed optionId,
+        address indexed claimer, 
+        uint totalClaimed
+    )
 }
