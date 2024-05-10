@@ -69,7 +69,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint256 capPerUnit
     ) public {
         // Validate parameters
-        require(premium > 0, "Premium must be greater than 0");
+        require(premium > 0 && premium <= capPerUnit, "Invalid Premium amount");
         require(strikePrice > 0, "Strike price must be greater than 0");
         require(
             buyDeadline > block.timestamp,
@@ -127,7 +127,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         string memory desc
     ) public {
         // Validate parameters
-        require(premium > 0, "Premium must be greater than 0");
+        require(premium > 0 && premium <= capPerUnit, "Invalid Premium amount");
         require(strikePrice > 0, "Strike price must be greater than 0");
         require(buyDeadline > block.timestamp, "Buy deadline must be in the future");
         require(expirationDate > buyDeadline, "Expiration date must be after buy deadline");
@@ -226,6 +226,37 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
 
         emit OptionClaimed(id, msg.sender, units, price);
+    }
+
+    function claimForPausedOption(uint256 id, uint256 units, bool isWriter) public {
+        // Get option from storage
+        Option storage option = options[id];
+        // Check if options has to pay
+        require(hasToPay(option.statuses), "Option does not have to pay");
+        // Check if option is paused
+        require(isPaused(option.statuses), "Option is not paused");
+        // Check if for writer
+        if (isWriter) {
+            // Check if the caller is the writer
+            require(msg.sender == option.writer, "unhauthorized");
+            // Calculate total collateral
+            uint256 price = (option.capPerUnit - option.premium) * units;
+            // check price is greater than 0
+            require(price > 0, "No price");
+            // Transfer collateral from the contract to the writer
+            require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
+        } else {
+        // Check if the buyer has enough units
+        require(balanceOf(msg.sender, id) >= units, "Not enough units");
+        // Burn option NFT from the buyer
+        _burn(msg.sender, id, units);
+        // Calculate total collateral
+        uint256 price = option.premium * units;
+        // Transfer collateral from the contract to the buyer
+        require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
+        // Increment units left
+        option.unitsLeft += units;
+        }
     }
 
     function deleteOption(uint256 id) public {
@@ -379,6 +410,45 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         bytes memory response,
         bytes memory err
     ) internal override {
+        // Get optionId from requestId
+        uint id = requestIds[requestId];
+        Option memory option = options[id];
+        // Handle error response
+        if (err.length != 0) {
+            option.statuses = setIsPaused(option.statuses, true);
+            option.statuses = setHasToPay(option.statuses, true);
+        } else {
+            uint256 price;
+            // get optionId from requestId
+            uint256 optionId = requestIds[requestId];
+            // get price from response
+            uint256 priceResult = abi.decode(response, (uint256));
+            // get price max from option
+            uint256 priceMax = options[optionId].capPerUnit;
+            // check if price is less than price max
+            priceMax >= priceResult ? price = priceResult : price = priceMax;
+            // check if price is less than strike price
+            bytes1 statuses = options[optionId].statuses;
+            // check if the option is a call option
+            bool isCallOption = isCall(options[optionId].statuses);
+            // check if the option is a call option
+            if (isCallOption) {
+                // check if the price is less than the strike price
+                if (price < options[optionId].strikePrice) {
+                    // set option result
+                    uint refundableAmount = option.units * option.capPerUnit;
+                    IERC20(usdcAddress).transferFrom(
+                        address(this),
+                        option.writer,
+                        refundableAmount
+                    );
+                    
+                } else {
+                    // calculate price to pay to buyers
+                    uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
+                    // set option result
+                    options[optionId].statuses = setHasToPay(statuses, true);
+                    options[optionId].optionPrice = priceToPayPerUnit;
         uint id = requestIds[requestId];
         Option memory option = options[id];
         bool hasToPay;
