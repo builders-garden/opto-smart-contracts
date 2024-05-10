@@ -13,7 +13,7 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
-contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{
+contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{ 
     using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
     mapping(bytes32 => uint256) public requestIds;
@@ -257,6 +257,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // Increment units left
         option.unitsLeft += units;
         }
+
+        erroredClaimed(id, msg.sender, price);
     }
 
     function deleteOption(uint256 id) public {
@@ -418,37 +420,6 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             option.statuses = setIsPaused(option.statuses, true);
             option.statuses = setHasToPay(option.statuses, true);
         } else {
-            uint256 price;
-            // get optionId from requestId
-            uint256 optionId = requestIds[requestId];
-            // get price from response
-            uint256 priceResult = abi.decode(response, (uint256));
-            // get price max from option
-            uint256 priceMax = options[optionId].capPerUnit;
-            // check if price is less than price max
-            priceMax >= priceResult ? price = priceResult : price = priceMax;
-            // check if price is less than strike price
-            bytes1 statuses = options[optionId].statuses;
-            // check if the option is a call option
-            bool isCallOption = isCall(options[optionId].statuses);
-            // check if the option is a call option
-            if (isCallOption) {
-                // check if the price is less than the strike price
-                if (price < options[optionId].strikePrice) {
-                    // set option result
-                    uint refundableAmount = option.units * option.capPerUnit;
-                    IERC20(usdcAddress).transferFrom(
-                        address(this),
-                        option.writer,
-                        refundableAmount
-                    );
-                    
-                } else {
-                    // calculate price to pay to buyers
-                    uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
-                    // set option result
-                    options[optionId].statuses = setHasToPay(statuses, true);
-                    options[optionId].optionPrice = priceToPayPerUnit;
         uint id = requestIds[requestId];
         Option memory option = options[id];
         bool hasToPay;
@@ -530,3 +501,4 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
     
 }
 
+}
