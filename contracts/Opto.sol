@@ -272,7 +272,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             }
         }
         // prevent out of bounds
-        if (endIndex > arrayLength) {
+        if (endIndex >= arrayLength) {
             endIndex = arrayLength-1;
         }
         Option memory option;
