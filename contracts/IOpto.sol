@@ -36,24 +36,25 @@ interface IOpto {
         uint256 strikePrice,
         uint256 expirationDate,
         OptionType optionType,
+        address feedAddress,
         uint256 optionQueryId,
         uint256 units,
         uint256 capPerUnit
     );
 
-       event CustomOptionCreated(
+    event CustomOptionCreated(
         uint256 indexed optionId,
         address indexed writer,
         bool isCall,
         uint256 premium,
         uint256 strikePrice,
         uint256 expirationDate,
-        OptionType optionType,
-        uint256 optionQueryId,
         uint256 units,
         uint256 capPerUnit,
         string name,
-        string desc
+        string desc, 
+        string source, 
+        string[] args
     );
 
     event OptionBought(
@@ -70,14 +71,12 @@ interface IOpto {
         uint256 totalPrice
     );
 
-    event OptionResult(
-        uint256 indexed optionId,
-        bool indexed hasToPay
+    event OptionDeleted(
+        uint indexed optionId
     );
-
-    event OptionPaused(uint256 indexed optionId);
-
     event Response(
+        uint256 indexed optionId,
+        bool indexed hasToPay,
         bytes32 indexed requestId,
         bytes response,
         bytes err
