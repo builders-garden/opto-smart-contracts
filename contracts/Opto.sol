@@ -53,6 +53,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         queryTypes[OptionType.RPC_CALL_QUERY] = 0;
         queryTypes[OptionType.SUBGRAPH_QUERY_1] = 1;
         queryTypes[OptionType.SUBGRAPH_QUERY_2] = 2;
+        queryTypes[OptionType.CUSTOM_QUERY] = 3;
     }
 
     function createOption(
