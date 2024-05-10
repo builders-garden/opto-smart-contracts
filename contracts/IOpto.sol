@@ -86,5 +86,5 @@ interface IOpto {
         uint256 indexed optionId,
         address indexed claimer, 
         uint totalClaimed
-    )
+    );
 }
