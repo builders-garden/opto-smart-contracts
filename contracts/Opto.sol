@@ -418,12 +418,14 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             // check if the price is greater than the strike price
             if (price > options[optionId].strikePrice) {
                 // set option result
-                uint refundableAmount = option.units * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
-                    option.writer,
-                    refundableAmount
-                );
+                 uint refundableAmount = option.unitsLeft * option.capPerUnit;
+                if (refundableAmount > 0){
+                        IERC20(usdcAddress).transferFrom(
+                        address(this),
+                        option.writer,
+                        refundableAmount
+                    );
+                }
                 
             } else {
                 // calculate price to pay to buyers
