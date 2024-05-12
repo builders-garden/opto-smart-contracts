@@ -183,7 +183,7 @@ library OptoLib {
     string public constant RPC_CALL_ADDRESS_9 = "0xC56765f04B248394CF1619D20dB8082Edbfa75b1"; // Silver
 
     string public constant SUBGRAPH_ENDPOINT_1 = "https://api.studio.thegraph.com/query/73482/opto-basefees-ethereum/version/latest";
-    string public constant SUBGRAPH_ENDPOINT_2 = "subgraph-avax";
+    string public constant SUBGRAPH_ENDPOINT_2 = "https://api.studio.thegraph.com/query/73482/opto-basefees-avax/version/latest";
 
 
     function getQueryAndParams(uint256 index, uint256 optionalQueryId, uint256 contractQueryAddress) internal pure returns (string memory, string[] memory) {
