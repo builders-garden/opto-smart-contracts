@@ -110,7 +110,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             units,
             0
         );
-        emit OptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, optionType, optionQueryId, assetAddressId, units, capPerUnit);
+        emit OptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, buyDeadline, optionType, optionQueryId, assetAddressId, units, capPerUnit);
     }
 
     function createCustomOption(
@@ -156,7 +156,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             0
         );
         // Store custom query
-        emit CustomOptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, units, capPerUnit, name, desc, query, args);
+        emit CustomOptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, buyDeadline, units, capPerUnit, name, desc, query, args);
         customOptionQueries[lastOptionId] = query;
         customOptionArgs[lastOptionId] = args;
     }
