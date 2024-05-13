@@ -18,7 +18,6 @@ interface IOpto {
         uint256 premium; 
         uint256 strikePrice; 
         uint256 expirationDate;
-        uint256 buyDeadline;
         uint256 optionQueryId;
         uint256 assetAddressId;
         uint256 units;
@@ -36,7 +35,7 @@ interface IOpto {
         uint256 premium,
         uint256 strikePrice,
         uint256 expirationDate,
-        uint256 buyDeadline;
+        uint256 buyDeadline,
         OptionType optionType,
         uint assetId,
         uint256 optionQueryId,
@@ -51,6 +50,7 @@ interface IOpto {
         uint256 premium,
         uint256 strikePrice,
         uint256 expirationDate,
+        uint256 buyDeadline,
         uint256 units,
         uint256 capPerUnit,
         string name,
