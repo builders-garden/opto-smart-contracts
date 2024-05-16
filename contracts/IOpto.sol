@@ -54,9 +54,7 @@ interface IOpto {
         uint256 units,
         uint256 capPerUnit,
         string name,
-        string desc, 
-        string source, 
-        string[] args
+        string desc
     );
 
     event OptionBought(

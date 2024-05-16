@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "./IOpto.sol";
-import "./OptoLibrary.sol";
+import "../IOpto.sol";
+import "../OptoLibrary.sol";
 import "./OptoUtils.sol";
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,7 +13,7 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
-contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils{ 
+contract OptoMock is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface, ConfirmedOwner, OptoUtils { 
     using FunctionsRequest for FunctionsRequest.Request;
     mapping(uint256 => Option) public options;
     mapping(bytes32 => uint256) public requestIds;
@@ -35,6 +35,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         address _owner,
         address _router
     ) ERC1155("") FunctionsClient(_router) ConfirmedOwner(_owner) {
+        // TODO: add 1155 constructor data URI link
     }
 
      function init(
@@ -43,7 +44,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         bytes32 _donID,
         uint64 _subscriptionId
     ) external onlyOwner {
-        require(!isInitialized, "Err19");
+        require(!isInitialized, "Opto: already initialized");
         usdcAddress = _usdcAddress;
         gasLimit = _gasLimit;
         donID = _donID;
@@ -54,7 +55,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         queryTypes[OptionType.SUBGRAPH_QUERY_2] = 2;
         queryTypes[OptionType.CUSTOM_QUERY] = 3;
     }
-
+    
     function createOption(
         bool isCallOption,
         uint256 premium,
@@ -68,29 +69,29 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint256 capPerUnit
     ) public {
         // Validate parameters
-        require(premium > 0 && premium <= capPerUnit, "Err1");
-        require(strikePrice > 0, "Err2");
+        require(premium > 0 && premium <= capPerUnit, "Invalid Premium amount");
+        require(strikePrice > 0, "Strike price must be greater than 0");
         require(
             buyDeadline > block.timestamp,
-            "Err3"
+            "Buy deadline must be in the future"
         );
         require(
             expirationDate > buyDeadline,
-            "Err4"
+            "Expiration date must be after buy deadline"
         );
-        require(units > 0, "Err5");
-        require(capPerUnit > 0, "Err6");
+        require(units > 0, "Units must be greater than 0");
+        require(capPerUnit > 0, "Cap per unit must be greater than 0");
         // Calculate total collateral from the writer
         uint256 collateral = capPerUnit * units;
         // Transfer collateral from the writer to the contract
-        require(
+        /*require(
             IERC20(usdcAddress).transferFrom(
                 msg.sender,
                 address(this),
                 collateral
             ),
-            "Err7"
-        );
+            "Transfer failed"
+        );*/
         // Update lastOptionInd
         lastOptionId += 1;
         // Create option
@@ -112,7 +113,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         emit OptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, buyDeadline, optionType, optionQueryId, assetAddressId, units, capPerUnit);
     }
 
-    function createCustomOption(
+    /*function createCustomOption(
         bool isCallOption,
         uint256 premium,
         uint256 strikePrice, 
@@ -126,16 +127,16 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         string memory desc
     ) public {
         // Validate parameters
-        require(premium > 0 && premium <= capPerUnit, "Err1");
-        require(strikePrice > 0, "Err2");
-        require(buyDeadline > block.timestamp, "Err3");
-        require(expirationDate > buyDeadline, "Err4");
-        require(units > 0, "Err5");
-        require(capPerUnit > 0, "Err6");
+        require(premium > 0 && premium <= capPerUnit, "Invalid Premium amount");
+        require(strikePrice > 0, "Strike price must be greater than 0");
+        require(buyDeadline > block.timestamp, "Buy deadline must be in the future");
+        require(expirationDate > buyDeadline, "Expiration date must be after buy deadline");
+        require(units > 0, "Units must be greater than 0");
+        require(capPerUnit > 0, "Cap per unit must be greater than 0");
         // Calculate total collateral from the writer
         uint256 collateral = capPerUnit * units;
         // Transfer collateral from the writer to the contract
-        require(IERC20(usdcAddress).transferFrom(msg.sender, address(this), collateral), "Err7");
+        require(IERC20(usdcAddress).transferFrom(msg.sender, address(this), collateral), "Transfer failed");
         // Update lastOptionInd
         lastOptionId += 1;
         // Create option    
@@ -155,37 +156,39 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             0
         );
         // Store custom query
-        emit CustomOptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, buyDeadline, units, capPerUnit, name, desc);
+        //emit CustomOptionCreated(lastOptionId, msg.sender, isCallOption, premium, strikePrice, expirationDate, buyDeadline, units, capPerUnit, name, desc, query, args);
         customOptionQueries[lastOptionId] = query;
         customOptionArgs[lastOptionId] = args;
-    }
+    }*/
+
+
 
 
     function buyOption(uint256 id, uint256 units) public {
         // Get option from storage
         Option storage option = options[id];
         // Check if option exists
-        require(option.writer != address(0), "Err8");
+        require(option.writer != address(0), "Option does not exist");
         // Check if option is paused
-        require(!isPaused(option.statuses), "Err9");
+        require(!isPaused(option.statuses), "Option is paused");
         // Check if option is not expired
         require(
             block.timestamp < option.buyDeadline,
-            "Err10"
+            "Option can no longer be bought"
         );
         // Check if there are enough units left
-        require(option.unitsLeft >= units, "Err11");
+        require(option.unitsLeft >= units, "Not enough units left");
         // Calculate total price
         uint256 totalPrice = option.premium * units;
         // Transfer premium from the buyer to the writer
-        require(
+        /*require(
             IERC20(usdcAddress).transferFrom(
                 msg.sender,
                 option.writer,
                 totalPrice
             ),
-            "Err7"
-        );
+            "Transfer failed"
+        );*/
         // If this is the first time the option is bought, make the option active
         if (option.unitsLeft == option.units && !isActive(option.statuses)) {
             option.statuses = setIsActive(option.statuses, true);
@@ -206,75 +209,76 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         // get units owned
         uint units = balanceOf(msg.sender, id);
         // Check if option is paused
-        require(!isPaused(option.statuses), "Err9");
+        require(!isPaused(option.statuses), "Option is paused");
         // Check if option is expired
-        require(block.timestamp >= option.expirationDate, "Err13");
+        require(block.timestamp >= option.expirationDate, "Option is expired");
         // Check if option is deactived
-        require(!isActive(option.statuses), "Err12");
+        require(!isActive(option.statuses), "Option is not active");
         // Check if option is 
-        require(hasToPay(option.statuses), "Err14");
+        require(hasToPay(option.statuses), "Option does not have to pay");
         // Check if the buyer has enough units
-        require(balanceOf(msg.sender, id) >= units, "Err11");
+        require(balanceOf(msg.sender, id) >= units, "Not enough units");
         // Burn option NFT from the buyer
         _burn(msg.sender, id, units);
         // Calculate total collateral
         uint256 price = option.optionPrice * units;
         // Transfer collateral from the contract to the buyer
-        require(IERC20(usdcAddress).transfer(msg.sender, price), "Err7");
+        //require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
 
         emit OptionClaimed(id, msg.sender, units, price);
     }
 
-    function claimForPausedOption(uint256 id, uint256 units, bool isWriter) public returns(uint256) {
+    function claimForPausedOption(uint256 id, uint256 units, bool isWriter) public returns (uint256){
         // Get option from storage
         Option storage option = options[id];
         // Check if options has to pay
-        require(hasToPay(option.statuses), "Err14");
+        require(hasToPay(option.statuses), "Option does not have to pay");
         // Check if option is paused
-        require(isPaused(option.statuses), "Err14");
+        require(isPaused(option.statuses), "Option is not paused");
         // define price var
         uint256 price;
         // Check if for writer
         if (isWriter) {
             // Check if the caller is the writer
-            require(msg.sender == option.writer, "Err19");
+            require(msg.sender == option.writer, "unhauthorized");
             // Calculate total collateral
             price = (option.capPerUnit - option.premium) * units;
             // check price is greater than 0
-            require(price > 0, "Err20");
+            require(price > 0, "No price");
             // Transfer collateral from the contract to the writer
-            require(IERC20(usdcAddress).transfer(msg.sender, price), "Err7");
+            //require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
         } else {
         // Check if the buyer has enough units
-        require(balanceOf(msg.sender, id) >= units, "Err11");
+        require(balanceOf(msg.sender, id) >= units, "Not enough units");
         // Burn option NFT from the buyer
         _burn(msg.sender, id, units);
         // Calculate total collateral
         price = option.premium * units;
         // Transfer collateral from the contract to the buyer
-        require(IERC20(usdcAddress).transfer(msg.sender, price), "Err7");
+        //require(IERC20(usdcAddress).transfer(msg.sender, price), "Transfer failed");
         // Increment units left
         option.unitsLeft += units;
         }
-        emit erroredClaimed(id, msg.sender, price);
         return price;
+
+        emit erroredClaimed(id, msg.sender, price);
     }
 
     function deleteOption(uint256 id) public {
         // Get option from storage
         Option storage option = options[id];
         // Check if option is deactived
-        require(!isActive(option.statuses), "Err17");
+        require(!isActive(option.statuses), "Option already activated");
         // Check if option is not already claimed
-        require(!hasToPay(option.statuses), "Err16");
+        require(!hasToPay(option.statuses), "Option already settled");
         // Transfer collateral from the contract to the writer
-        require(
+        /*require(
             IERC20(usdcAddress).transfer(
                 option.writer,
                 option.units * option.capPerUnit
             ),
-            "Err7"
-        );
+            "Transfer failed"
+        );*/
         // Delete option
         delete options[id];
         emit OptionDeleted(id);
@@ -341,36 +345,73 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         (uint op, uint optionId) = abi.decode(performData, (uint, uint));
         if (op == 1){
             // check optionId
-            require(optionId != 0, "Err18");
+            require(optionId != 0, "Invalid optionId");
             // Get option from storage
             Option memory option = options[optionId];
             // Check if option is paused
-            require(!isPaused(option.statuses), "Err9");
+            require(!isPaused(option.statuses), "Option is paused");
             // Check if option is expired
             require(
                 block.timestamp >= option.expirationDate,
-                "Err8"
+                "Option isn't expired yet"
             );
             // Check if option is deactived
-            require(isActive(option.statuses), "Err12");
+            require(isActive(option.statuses), "Option is not active");
             // Check if option is not already claimed
-            require(!hasToPay(option.statuses), "Err16");
+            require(!hasToPay(option.statuses), "Option already settled");
             // Send request to Chainlink
-            bytes32 requestId = _invokeSendRequest(
+            
+           /* bytes32 requestId = _invokeSendRequest(
                 option.optionType,
                 option.optionQueryId,
                 option.assetAddressId
             );
             // Store requestId for optionId
             requestIds[requestId] = optionId;
+            //return requestId;*/
         }
         if (op == 2){
             setExhausted(optionId);
         }
         
     }
+    function performUpkeeep(bytes calldata performData) external returns(bytes32) {
+        (uint op, uint optionId) = abi.decode(performData, (uint, uint));
+        if (op == 1) {
+            // check optionId
+            require(optionId != 0, "Invalid optionId");
+            // Get option from storage
+            Option memory option = options[optionId];
+            // Check if option is paused
+            require(!isPaused(option.statuses), "Option is paused");
+            // Check if option is expired
+            require(
+                block.timestamp >= option.expirationDate,
+                "Option isn't expired yet"
+            );
+            // Check if option is deactived
+            require(isActive(option.statuses), "Option is not active");
+            // Check if option is not already claimed
+            require(!hasToPay(option.statuses), "Option already settled");
+            // Send request to Chainlink
+            
+            bytes32 requestId = _invokeSendRequest(
+                optionId,
+                option.optionType,
+                option.optionQueryId,
+                option.assetAddressId
+            );
+            // Store requestId for optionId
+            requestIds[requestId] = optionId;
+            return requestId;
+        }
+        if (op == 2) {
+            setExhausted(optionId);
+        }   
+    }
 
     function _invokeSendRequest(
+        uint256 optionId,
         OptionType optionType,
         uint256 optionQueryId,
         uint256 queryAddress
@@ -389,6 +430,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             // Get query and params from opto Library
             (query, args) = OptoLib.getQueryAndParams(queryId, optionQueryId, queryAddress);
         }
+
+        /*
         // Create request
         FunctionsRequest.Request memory req;
         // Initialize the request with JS code
@@ -402,6 +445,12 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             gasLimit,
             donID
         );
+        */
+
+        bytes32 requestId = bytes32(optionId);
+
+
+        // Return the request ID
         return requestId;
     }
 
@@ -415,10 +464,109 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         Option memory option = options[id];
         // Handle error response
         if (err.length != 0) {
-            option.statuses = setIsActive(option.statuses, false);
+            option.statuses = setIsPaused(option.statuses, true);
+            option.statuses = setHasToPay(option.statuses, true);
+        } else {
+        bool hasToPay;
+        uint256 price;
+        // get optionId from requestId
+        uint256 optionId = requestIds[requestId];
+        // get price from response
+        uint256 priceResult = abi.decode(response, (uint256));
+        // get price max from option
+        uint256 priceMax = options[optionId].capPerUnit;
+        // check if price is less than price max
+        priceMax >= priceResult ? price = priceResult : price = priceMax;
+        // check if price is less than strike price
+        bytes1 statuses = options[optionId].statuses;
+        // check if the option is a call option
+        bool isCallOption = isCall(statuses);
+
+        options[optionId].statuses = setIsActive(statuses, false);
+        // put and call cases
+        if (isCallOption) {
+            // check if the price is less than the strike price
+            if (price < options[optionId].strikePrice) {
+                // set option result
+                uint refundableAmount = option.units * option.capPerUnit;
+                /*IERC20(usdcAddress).transferFrom(
+                    address(this),
+                    option.writer,
+                    refundableAmount
+                );*/
+                
+            } else {
+                // calculate price to pay to buyers
+                uint256 priceToPayPerUnit = price - options[optionId].strikePrice; 
+                // set option result
+                hasToPay = true;
+                options[optionId].statuses = setHasToPay(statuses, hasToPay);
+                options[optionId].optionPrice = priceToPayPerUnit;
+
+                uint refundableAmount = option.unitsLeft * option.capPerUnit;
+                if (refundableAmount > 0){
+                      /*IERC20(usdcAddress).transferFrom(
+                    address(this),
+                    option.writer,
+                    refundableAmount
+                );*/
+                }
+            }
+        } else {
+            // check if the price is greater than the strike price
+            if (price > options[optionId].strikePrice) {
+                // set option result
+                uint refundableAmount = option.units * option.capPerUnit;
+                /*IERC20(usdcAddress).transferFrom(
+                    address(this),
+                    option.writer,
+                    refundableAmount
+                );*/
+                
+            } else {
+                // calculate price to pay to buyers
+                uint256 priceToPayPerUnit = options[optionId].strikePrice - price; 
+                // set option result
+                hasToPay = true;
+                options[optionId].statuses = setHasToPay(statuses, hasToPay);
+                options[optionId].optionPrice = priceToPayPerUnit;
+
+                uint refundableAmount = option.unitsLeft * option.capPerUnit;
+                /*IERC20(usdcAddress).transferFrom(
+                    address(this),
+                    option.writer,
+                    refundableAmount
+                );*/
+            }
+        }
+        options[id] = option;
+        // emit event
+        //emit Response(optionId, hasToPay, requestId, response, err);
+    }   
+}
+
+function getStatuses(uint256 id) public view returns (bytes1) {
+    return options[id].statuses;
+}
+
+
+function fulfilllRequest(
+        bytes32 requestId,
+        bytes memory response,
+        bytes memory err
+    ) external returns (bytes1) {
+        // Get optionId from requestId
+        uint id = requestIds[requestId]; //problem here
+        Option memory option = options[id];
+        //console.log("option", option);
+        // Handle error response
+        if (err.length != 0) {
+            console.log("here");
+            option.statuses = setIsActive(option.statuses, false); //add it
             option.statuses = setIsPaused(option.statuses, true);
             option.statuses = setHasToPay(option.statuses, true);
             options[id] = option;
+
         } else {
         bool hasToPay;
         uint256 price;
@@ -428,10 +576,19 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint256 priceMax = option.capPerUnit;
         // check if price is less than price max
         priceMax >= priceResult ? price = priceResult : price = priceMax;
+        // check if price is less than strike price
         // check if the option is a call option
         bool isCallOption = isCall(option.statuses);
-        option.statuses = setIsActive(option.statuses, false);
+        bool isActiveOption = isActive(option.statuses);
+        //option.statuses = setIsActive(statuses, false);
+        options[id].statuses = setIsActive(option.statuses, false);
+        bool isActiveOption2 = isActive(option.statuses);
 
+        options[id] = option;
+
+        return option.statuses;
+        
+        /*
         // put and call cases
         if (isCallOption) {
             // check if the price is less than the strike price
@@ -449,12 +606,12 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
                 uint256 priceToPayPerUnit = price - option.strikePrice; 
                 // set option result
                 hasToPay = true;
-                option.statuses = setHasToPay(option.statuses, hasToPay);
+                option.statuses = setHasToPay(statuses, hasToPay);
                 option.optionPrice = priceToPayPerUnit;
 
                 uint refundableAmount = option.unitsLeft * option.capPerUnit;
                 if (refundableAmount > 0){
-                      IERC20(usdcAddress).transferFrom(
+                      /*IERC20(usdcAddress).transferFrom(
                     address(this),
                     option.writer,
                     refundableAmount
@@ -477,43 +634,21 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
                 uint256 priceToPayPerUnit = option.strikePrice - price; 
                 // set option result
                 hasToPay = true;
-                option.statuses = setHasToPay(option.statuses, hasToPay);
+                option.statuses = setHasToPay(statuses, hasToPay);
                 option.optionPrice = priceToPayPerUnit;
 
                 uint refundableAmount = option.unitsLeft * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
+                /*IERC20(usdcAddress).transferFrom(
                     address(this),
                     option.writer,
                     refundableAmount
                 );
             }
         }
-        // update option in storage
         options[id] = option;
         // emit event
-        emit Response(id, hasToPay, requestId, response, err);
-        }   
-    }
+        //emit Response(optionId, hasToPay, requestId, response, err);
+        */
+    }  }
 
 }
-// Error codes:
-// err1: invalid premium
-// err2: invalid strike price
-// err3: invalid buy deadline
-// err4: invalid expiration date
-// err5: invalid units
-// err6: invalid cap per unit
-// err7: transfer failed
-// err8: option not exist
-// err9: option paused
-// err10: can't buy option
-// err11: not enough units
-// err12: option not active
-// err13: option expired
-// err14: option not to pay
-// err15: option not paused
-// err16: option not settled
-// err17: option activated
-// err18: invalid option id
-// Err19: unhauthorized
-// Err20: no price

@@ -232,25 +232,4 @@ library OptoLib {
         }
         return (query, params);
     }
-
-
-
-    // String array to store queries
-
-    //Type
-    // 0 - RPC_CALL_QUERY
-    // 1 - SUBGRAPH_QUERY
-
-    //RPC
-    // rpc -> un endpoint (Arbitrum)
-    // per ogni endpoint -> lista di address
-
-
-    // SUBGRAPH
-    // gas -> lista di endpoint
-    // blob -> no parametri
-    
-
-    // queries
-
 }
