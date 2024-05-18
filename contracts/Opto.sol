@@ -316,7 +316,9 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         }
         Option memory option;
         // check expired element in active options
+        uint j;
         for (uint i = startingIndex; i < endIndex; ++i) {
+            j++;
             option = options[activeOptions[i]];
             if (
                 option.expirationDate < block.timestamp &&
@@ -328,7 +330,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
                     performData = abi.encode(1, activeOptions[i])
                 );
             }
-            if (i == endIndex - 1) {
+            if (i == endIndex && j == maxSubarrayLength) {
                 return (
                     upkeepNeeded = true,
                     // id 2 is for exhausted subarrays
@@ -343,7 +345,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             // check optionId
             require(optionId != 0, "Err18");
             // Get option from storage
-            Option memory option = options[optionId];
+            Option storage option = options[optionId];
             // Check if option is paused
             require(!isPaused(option.statuses), "Err9");
             // Check if option is expired
@@ -356,6 +358,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             // Check if option is not already claimed
             require(!hasToPay(option.statuses), "Err16");
             // Send request to Chainlink
+            
             bytes32 requestId = _invokeSendRequest(
                 option.optionType,
                 option.optionQueryId,
@@ -363,6 +366,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             );
             // Store requestId for optionId
             requestIds[requestId] = optionId;
+            option.statuses = setIsActive(option.statuses, false);
         }
         if (op == 2){
             setExhausted(optionId);
@@ -389,6 +393,7 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             // Get query and params from opto Library
             (query, args) = OptoLib.getQueryAndParams(queryId, optionQueryId, queryAddress);
         }
+        
         // Create request
         FunctionsRequest.Request memory req;
         // Initialize the request with JS code
@@ -405,6 +410,8 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         return requestId;
     }
 
+
+
     function fulfillRequest(
         bytes32 requestId,
         bytes memory response,
@@ -414,48 +421,37 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
         uint id = requestIds[requestId];
         Option memory option = options[id];
         // Handle error response
-        if (err.length != 0) {
-            option.statuses = setIsActive(option.statuses, false);
-            option.statuses = setIsPaused(option.statuses, true);
-            option.statuses = setHasToPay(option.statuses, true);
-            options[id] = option;
-        } else {
+     
         bool hasToPay;
-        uint256 price;
         // get price from response
-        uint256 priceResult = abi.decode(response, (uint256));
-        // get price max from option
-        uint256 priceMax = option.capPerUnit;
-        // check if price is less than price max
-        priceMax >= priceResult ? price = priceResult : price = priceMax;
+        uint256 result = abi.decode(response, (uint256));
+  
         // check if the option is a call option
         bool isCallOption = isCall(option.statuses);
-        option.statuses = setIsActive(option.statuses, false);
-
+        
         // put and call cases
         if (isCallOption) {
             // check if the price is less than the strike price
-            if (price < option.strikePrice) {
+            if (result <= option.strikePrice) {
                 // set option result
                 uint refundableAmount = option.units * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
+                  IERC20(usdcAddress).transfer(
                     option.writer,
                     refundableAmount
                 );
                 
             } else {
-                // calculate price to pay to buyers
-                uint256 priceToPayPerUnit = price - option.strikePrice; 
                 // set option result
                 hasToPay = true;
                 option.statuses = setHasToPay(option.statuses, hasToPay);
-                option.optionPrice = priceToPayPerUnit;
-
+                uint pricePerUnit = result - option.strikePrice;
+                if (pricePerUnit > option.capPerUnit){
+                    pricePerUnit = option.capPerUnit;
+                }
+                option.optionPrice = pricePerUnit;
                 uint refundableAmount = option.unitsLeft * option.capPerUnit;
                 if (refundableAmount > 0){
-                      IERC20(usdcAddress).transferFrom(
-                    address(this),
+                    IERC20(usdcAddress).transfer(
                     option.writer,
                     refundableAmount
                 );
@@ -463,38 +459,39 @@ contract Opto is IOpto, ERC1155, FunctionsClient, AutomationCompatibleInterface,
             }
         } else {
             // check if the price is greater than the strike price
-            if (price > option.strikePrice) {
+            if (result > option.strikePrice) {
                 // set option result
                 uint refundableAmount = option.units * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
+                IERC20(usdcAddress).transfer(
                     option.writer,
                     refundableAmount
                 );
-                
             } else {
-                // calculate price to pay to buyers
-                uint256 priceToPayPerUnit = option.strikePrice - price; 
                 // set option result
                 hasToPay = true;
                 option.statuses = setHasToPay(option.statuses, hasToPay);
-                option.optionPrice = priceToPayPerUnit;
-
+      
+                uint pricePerUnit =  option.strikePrice - result;
+                if (pricePerUnit > option.capPerUnit){
+                    pricePerUnit = option.capPerUnit;
+                }
+                option.optionPrice = pricePerUnit;
                 uint refundableAmount = option.unitsLeft * option.capPerUnit;
-                IERC20(usdcAddress).transferFrom(
-                    address(this),
-                    option.writer,
-                    refundableAmount
+                if (refundableAmount > 0){
+                    IERC20(usdcAddress).transfer(
+                        option.writer,
+                        refundableAmount
                 );
+                }
             }
         }
         // update option in storage
         options[id] = option;
         // emit event
         emit Response(id, hasToPay, requestId, response, err);
-        }   
+          
     }
-
+    
 }
 // Error codes:
 // err1: invalid premium
