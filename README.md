@@ -36,6 +36,15 @@ Avalanche Fuji:
 
 [Snowtrace - Opto Contract](https://testnet.snowtrace.io/address/0xdDa994D19956EC4D8E669e1CA8DBEc4e038C08a8)
 
+
 [Chainlink - Functions Subscription](https://functions.chain.link/fuji/7633)
 
 [Chainlink - Automation Panel](https://automation.chain.link/fuji/45209714636357398284842939654919830991322731419128780532945778056239980412066)
+
+
+
+## The drone
+The drone wont hack on chainlink anymore
+
+
+
